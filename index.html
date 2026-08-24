@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>GAN KHỎE</title>
+<style>
+  html{ color-scheme: light dark; }
+  :root{
+    --ink:#12241c;
+    --paper:#eef1e8;
+    --panel:#ffffff;
+    --moss:#2f5d4f;
+    --moss-dark:#16302a;
+    --moss-light: #e4ece7;
+    --amber:#c8842c;
+    --amber-soft:#f4e3c8;
+    --amber-ink:#6b430f;
+    --danger:#9c3821;
+    --danger-soft:#f6ddd7;
+    --ok-ink:#195c33;
+    --ok-soft:#dcefe0;
+    --muted:#48564c;
+    --muted-soft:#6b7a6f;
+    --line: rgba(18,36,28,0.14);
+    --mono: 'JetBrains Mono', 'SF Mono', 'Courier New', monospace;
+    --ease: cubic-bezier(.22,1,.36,1);
+    --accent: var(--moss-dark);
+    --tip-ink: #3a2a0f;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#eaf0ea;
+      --paper:#0f1a15;
+      --panel:#1a2822;
+      --moss:#4f9c81;
+      --moss-dark:#0c1f19;
+      --moss-light:#1e3129;
+      --amber:#e0a24d;
+      --amber-soft:#3a2c14;
+      --amber-ink:#f0c785;
+      --danger:#e37b5e;
+      --danger-soft:#3a201a;
+      --ok-ink:#7fd6a0;
+      --ok-soft:#183226;
+      --muted:#b7c4bb;
+      --muted-soft:#8fa198;
+      --line: rgba(234,240,234,0.14);
+      --accent: #7fd6a0;
+      --tip-ink: #f3e4c9;
+    }
+    .hero{ box-shadow: 0 4px 18px rgba(0,0,0,0.45); }
+    .card{ box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 20px -12px rgba(0,0,0,0.5); }
+    input[type=number], input[type=date]{ background:#101c17; color:var(--ink); }
+    .check-item{ background:#101c17; }
+    .bar-track, .streak-bar-track{ background:#25352c; }
+    .bmi-tag{ color:var(--amber-ink); }
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth; background:var(--paper);}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    font-size:15px;
+    line-height:1.5;
+  }
+  input, select, textarea, button{ color-scheme: light dark; }
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition:none !important;}
+  }
+  .wrap{max-width:520px;margin:0 auto;padding-bottom:90px;}
+
+  /* HERO */
+  .hero{
+    background: linear-gradient(160deg, var(--moss-dark), var(--moss) 75%);
+    color:#ffffff;
+    padding:24px 20px 22px;
+    position:sticky; top:0; z-index:30;
+    box-shadow: 0 4px 18px rgba(18,36,28,0.22);
+  }
+  .hero-top{display:flex;justify-content:space-between;align-items:flex-start;}
+  .eyebrow{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.14em;
+    text-transform:uppercase; color:#e3ecE6; opacity:.95; margin:0 0 4px; font-weight:600;
+  }
+  .hero h1{font-size:24px;line-height:1.1;margin:0;font-weight:700;letter-spacing:-.01em;color:#fff;}
+  .save-pill{
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.04em;
+    background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.28);
+    border-radius:20px; padding:5px 10px; display:flex; align-items:center; gap:5px;
+    color:#f2f7f3; white-space:nowrap; transition: background .3s var(--ease);
+  }
+  .save-dot{width:6px;height:6px;border-radius:50%;background:#8fd6a8;transition: background .3s;}
+  .save-pill.saving .save-dot{background:var(--amber); animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  .hero-stats{display:flex;gap:8px;margin-top:16px;}
+  .hstat{flex:1;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.26);
+    border-radius:11px;padding:9px 6px;text-align:center;}
+  .hstat .n{font-family:var(--mono);font-size:18px;font-weight:700;color:#fff;}
+  .hstat .l{font-family:var(--mono);font-size:9px;letter-spacing:.05em;color:#eaf3ec;text-transform:uppercase;margin-top:2px;}
+
+  /* TABS */
+  .tabbar{
+    display:flex; gap:2px; padding:10px 12px 0;
+    background:linear-gradient(160deg, var(--moss-dark), var(--moss) 130%);
+    position:sticky; top:0; z-index:29;
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .tabbar::-webkit-scrollbar{display:none;}
+  .tab{
+    flex:0 0 auto; text-align:center; padding:10px 12px 12px;
+    font-family:var(--mono); font-size:11px; letter-spacing:.03em; font-weight:600;
+    color:#cfe0d5; cursor:pointer; border-bottom:2px solid transparent;
+    white-space:nowrap;
+    transition: color .25s var(--ease), border-color .25s var(--ease);
+  }
+  .tab.active{color:#ffffff; border-color:var(--amber);}
+
+  /* PANELS */
+  .panel{display:none; padding:20px 20px 4px; animation: fadeUp .35s var(--ease);}
+  .panel.active{display:block;}
+  @keyframes fadeUp{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
+
+  h2.sec-title{font-size:19px;margin:0 0 14px;font-weight:700;color:var(--ink);}
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:14px;
+    box-shadow: 0 1px 2px rgba(18,36,28,0.05), 0 8px 20px -12px rgba(18,36,28,0.15);
+  }
+
+  .bmi-row{display:flex;align-items:baseline;gap:10px;}
+  .bmi-num{font-family:var(--mono);font-size:38px;font-weight:700;color:var(--accent);transition: color .3s;}
+  .bmi-tag{font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;
+    background:var(--amber-soft); color:var(--amber-ink); display:inline-block;margin-top:6px;}
+  .bar-track{height:9px;border-radius:6px;background:#dfdccb;overflow:hidden;margin-top:12px;}
+  .bar-fill{height:100%;background:linear-gradient(90deg,var(--moss),var(--amber));border-radius:6px;
+    transition: width .5s var(--ease);}
+  .bar-scale{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;color:var(--muted-soft);margin-top:4px;font-weight:600;}
+
+  label.field{display:block;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin-bottom:4px;}
+  input[type=number], input[type=date]{
+    width:100%; padding:11px 12px; border-radius:9px; border:1px solid var(--line);
+    background:#fbfaf5; font-family:var(--mono); font-size:15px; color:var(--ink);
+    transition: border-color .2s, box-shadow .2s;
+  }
+  input:focus{outline:none; border-color:var(--moss); box-shadow:0 0 0 3px rgba(47,93,79,0.18);}
+  .row2{display:flex;gap:10px;}
+  .row2>div{flex:1;}
+  .btn{
+    width:100%; padding:13px; border-radius:10px; border:none; background:var(--moss-dark);
+    color:#fff; font-family:var(--mono); font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+    cursor:pointer; margin-top:10px; transition: transform .15s var(--ease), background .2s;
+  }
+  .btn:active{transform:scale(0.97); background:var(--moss);}
+  .btn.alt{background:var(--amber); color:#2c1b03;}
+  .btn.alt:active{background:#b5761f;}
+
+  .log-item{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+    border-bottom:1px dashed var(--line); font-family:var(--mono);font-size:12.5px;color:var(--ink);
+    animation: fadeUp .3s var(--ease);}
+  .log-item:last-child{border-bottom:none;}
+  .log-delta{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;}
+  .delta-down{background:var(--ok-soft);color:var(--ok-ink);}
+  .delta-up{background:var(--danger-soft);color:var(--danger);}
+  .delta-flat{background:#e6e6e6;color:#444;}
+  .empty{font-family:var(--mono);font-size:12px;color:var(--muted-soft);padding:14px 0;text-align:center;}
+  .del-btn{border:none;background:none;color:var(--danger);font-family:var(--mono);font-size:14px;cursor:pointer;padding:2px 6px;font-weight:700;}
+
+  .check-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .check-item{display:flex;align-items:center;gap:9px;background:#fbfaf5;border:1px solid var(--line);
+    border-radius:11px;padding:11px;font-size:13.5px;color:var(--ink);cursor:pointer;user-select:none;
+    transition: background .2s var(--ease), border-color .2s var(--ease), transform .15s var(--ease);}
+  .check-item:active{transform:scale(0.97);}
+  .check-item.done{background:var(--moss-dark);color:#fff;border-color:var(--moss-dark);}
+  .check-box{width:17px;height:17px;border-radius:5px;border:2px solid var(--moss);flex:none;position:relative;transition:.2s;}
+  .check-item.done .check-box{background:var(--amber);border-color:var(--amber);}
+  .check-item.done .check-box::after{content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--moss-dark);font-weight:900;}
+  .streak{font-family:var(--mono);font-size:11.5px;color:var(--accent);font-weight:700;margin-top:12px;text-align:center;}
+  .streak-bar-track{height:5px;background:#dfdccb;border-radius:4px;overflow:hidden;margin-top:8px;}
+  .streak-bar-fill{height:100%;background:var(--amber);border-radius:4px;transition:width .4s var(--ease);}
+
+  .lab-grid{display:flex;flex-direction:column;gap:0;}
+  .lab-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);}
+  .lab-row:last-child{border:none;}
+  .lab-name{font-size:13.5px;color:var(--ink);}
+  .lab-name small{display:block;font-family:var(--mono);font-size:9.5px;color:var(--muted-soft);font-weight:600;}
+  .lab-val{font-family:var(--mono);font-size:15px;font-weight:700;text-align:right;color:var(--ink);}
+  .lab-flag{font-family:var(--mono);font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:5px;display:inline-block;margin-top:2px;}
+  .flag-high{background:var(--danger-soft);color:var(--danger);}
+  .flag-ok{background:var(--ok-soft);color:var(--ok-ink);}
+
+  .tip{background:var(--amber-soft);border-left:3px solid var(--amber);border-radius:0 10px 10px 0;
+    padding:11px 13px;font-size:13.5px;line-height:1.6;color:var(--tip-ink);margin-bottom:10px;}
+  .tip b{color:var(--amber-ink);}
+
+  /* Meal plan */
+  .meal-slot{border-bottom:1px solid var(--line);padding:12px 0;}
+  .meal-slot:last-child{border-bottom:none;}
+  .meal-time{font-family:var(--mono);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);margin-bottom:4px;}
+  .meal-desc{font-size:14px;color:var(--ink);line-height:1.55;}
+  .principle-list{margin:0;padding-left:18px;color:var(--ink);font-size:13.5px;line-height:1.75;}
+  .principle-list li{margin-bottom:4px;}
+  .principle-list b{color:var(--accent);}
+
+  /* Exercise schedule */
+  .week-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .week-row:last-child{border-bottom:none;}
+  .week-day{font-family:var(--mono);font-weight:700;font-size:12px;color:var(--accent);width:52px;flex:none;padding-top:1px;}
+  .week-body{flex:1;}
+  .week-type{font-size:14px;color:var(--ink);font-weight:600;}
+  .week-detail{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;}
+
+  footer{padding:18px 20px 20px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--muted-soft);line-height:1.7;}
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--moss-dark); color:#fff; font-family:var(--mono); font-size:12px; font-weight:600;
+    padding:10px 18px; border-radius:30px; opacity:0; pointer-events:none; z-index:50;
+    transition: opacity .3s var(--ease), transform .3s var(--ease);
+    box-shadow:0 8px 24px rgba(0,0,0,0.25);
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  .skel{opacity:.4; filter:blur(1px);}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+
+  <div class="hero">
+    <div class="hero-top">
+      <div>
+        <p class="eyebrow">Nhật ký sức khỏe</p>
+        <h1>GAN KHỎE</h1>
+      </div>
+      <div class="save-pill" id="savePill"><span class="save-dot"></span><span id="saveText">Đã lưu</span></div>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><div class="n">178</div><div class="l">cm</div></div>
+      <div class="hstat"><div class="n" id="heroWeight">79.0</div><div class="l">kg hiện tại</div></div>
+      <div class="hstat"><div class="n" id="heroBmi">24.9</div><div class="l">BMI</div></div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tab active" data-tab="tong-quan">Tổng quan</div>
+    <div class="tab" data-tab="can-nang">Cân nặng</div>
+    <div class="tab" data-tab="thoi-quen">Thói quen</div>
+    <div class="tab" data-tab="thuc-don">Thực đơn</div>
+    <div class="tab" data-tab="van-dong">Vận động</div>
+    <div class="tab" data-tab="xet-nghiem">Xét nghiệm</div>
+  </div>
+
+  <!-- TỔNG QUAN -->
+  <div class="panel active" id="panel-tong-quan">
+    <h2 class="sec-title">Chỉ số cơ thể</h2>
+    <div class="card">
+      <div class="bmi-row">
+        <div>
+          <div class="bmi-num" id="bmiNum">24.9</div>
+          <div class="bmi-tag" id="bmiTag">Thừa cân nhẹ</div>
+        </div>
+      </div>
+      <div class="bar-track"><div class="bar-fill" id="bmiBar" style="width:62%"></div></div>
+      <div class="bar-scale"><span>18.5</span><span>23</span><span>25</span><span>30+</span></div>
+      <div class="row2" style="margin-top:16px;">
+        <div><label class="field">Chiều cao (cm)</label><input type="number" id="hInput" value="178"></div>
+        <div><label class="field">Cân nặng hiện tại (kg)</label><input type="number" id="wInput" value="79" step="0.1"></div>
+      </div>
+      <button class="btn" onclick="recalcBmi(true)">Tính lại BMI</button>
+    </div>
+    <div class="tip">
+      Với gan nhiễm mỡ, giảm <b>5–10% trọng lượng cơ thể</b> (khoảng 4–8kg) trong 3–6 tháng thường giúp giảm mỡ gan rõ rệt. Không cần giảm quá nhanh.
+    </div>
+    <div class="tip">
+      Công cụ này chỉ hỗ trợ theo dõi, <b>không thay thế</b> chỉ định của bác sĩ. Nên tái khám theo lịch hẹn.
+    </div>
+  </div>
+
+  <!-- CÂN NẶNG -->
+  <div class="panel" id="panel-can-nang">
+    <h2 class="sec-title">Nhật ký cân nặng</h2>
+    <div class="card">
+      <div class="row2">
+        <div><label class="field">Ngày</label><input type="date" id="logDate"></div>
+        <div><label class="field">Cân nặng (kg)</label><input type="number" id="logWeight" step="0.1" placeholder="vd: 78.5"></div>
+      </div>
+      <button class="btn" onclick="addWeightLog()">Ghi nhận</button>
+      <div class="chart-wrap" id="chartWrap"></div>
+    </div>
+    <div class="card" id="weightListCard">
+      <div id="weightList"></div>
+    </div>
+  </div>
+
+  <!-- THÓI QUEN -->
+  <div class="panel" id="panel-thoi-quen">
+    <h2 class="sec-title">Việc cần làm hôm nay</h2>
+    <div class="card">
+      <div class="check-grid" id="checklist"></div>
+      <div class="streak" id="streakText">0/6 hoàn thành</div>
+      <div class="streak-bar-track"><div class="streak-bar-fill" id="streakBar" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- THỰC ĐƠN -->
+  <div class="panel" id="panel-thuc-don">
+    <h2 class="sec-title">Thực đơn gợi ý</h2>
+    <div class="tip">
+      Nguyên tắc chung cho gan nhiễm mỡ — không phải chế độ ăn kiêng khắt khe, chỉ là điều chỉnh thói quen:
+      <ul class="principle-list" style="margin-top:6px;">
+        <li><b>Giảm tinh bột tinh chế & đồ ngọt:</b> cơm trắng ít lại, hạn chế nước ngọt, bánh kẹo, trà sữa.</li>
+        <li><b>Ưu tiên đạm nạc:</b> cá, ức gà, đậu hũ, trứng thay vì thịt mỡ, đồ chiên rán.</li>
+        <li><b>Nhiều rau xanh & trái cây ít ngọt:</b> nên chiếm nửa đĩa ăn mỗi bữa.</li>
+        <li><b>Hạn chế tối đa rượu bia</b> — đây là yếu tố ảnh hưởng trực tiếp đến men gan.</li>
+        <li>Ưu tiên hấp, luộc, nướng thay vì chiên xào nhiều dầu mỡ.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <div class="meal-time" style="margin:0;">Thực đơn mẫu — ngày <span id="mealDayNum">1</span></div>
+      </div>
+      <div id="mealPlanBody"></div>
+      <button class="btn alt" onclick="shuffleMeal()">Đổi thực đơn khác</button>
+    </div>
+  </div>
+
+  <!-- VẬN ĐỘNG -->
+  <div class="panel" id="panel-van-dong">
+    <h2 class="sec-title">Vận động trong tuần</h2>
+    <div class="tip">
+      Mục tiêu: <b>ít nhất 150 phút/tuần</b> vận động cường độ vừa (đi bộ nhanh, đạp xe...), kết hợp thêm bài tập kháng lực 2 buổi/tuần. Khởi động 5 phút trước và giãn cơ sau khi tập. Nếu có bệnh nền khác, nên hỏi ý kiến bác sĩ trước khi tăng cường độ.
+    </div>
+    <div class="card">
+      <div id="weekSchedule"></div>
+    </div>
+  </div>
+
+  <!-- XÉT NGHIỆM -->
+  <div class="panel" id="panel-xet-nghiem">
+    <h2 class="sec-title">Kết quả 23/08/2026</h2>
+    <div class="card">
+      <div class="lab-grid">
+        <div class="lab-row"><div class="lab-name">ALT (SGPT)<small>Men gan — chuẩn &lt; 50 U/L</small></div>
+          <div><div class="lab-val">81.6</div><span class="lab-flag flag-high">Cao ~1.6×</span></div></div>
+        <div class="lab-row"><div class="lab-name">AST (SGOT)<small>Men gan — chuẩn &lt; 50 U/L</small></div>
+          <div><div class="lab-val">39.2</div><span class="lab-flag flag-ok">Bình thường</span></div></div>
+        <div class="lab-row"><div class="lab-name">GGT<small>Men gan mật — chuẩn &lt; 55 U/L</small></div>
+          <div><div class="lab-val">50.8</div><span class="lab-flag flag-ok">Gần ngưỡng trên</span></div></div>
+        <div class="lab-row"><div class="lab-name">Cholesterol<small>Chuẩn &lt; 5.2 mmol/L</small></div>
+          <div><div class="lab-val">6.45</div><span class="lab-flag flag-high">Cao</span></div></div>
+        <div class="lab-row"><div class="lab-name">Triglyceride<small>Chuẩn &lt; 1.7 mmol/L</small></div>
+          <div><div class="lab-val">1.97</div><span class="lab-flag flag-high">Cao nhẹ</span></div></div>
+        <div class="lab-row"><div class="lab-name">LDL-C<small>Chuẩn &lt; 3.3 mmol/L</small></div>
+          <div><div class="lab-val">4.42</div><span class="lab-flag flag-high">Cao</span></div></div>
+        <div class="lab-row"><div class="lab-name">Acid Uric<small>Chuẩn 208–428 μmol/L</small></div>
+          <div><div class="lab-val">529.2</div><span class="lab-flag flag-high">Cao</span></div></div>
+      </div>
+    </div>
+    <div class="tip">
+      Men gan tăng + mỡ máu cao + acid uric cao + BMI ~25 thường đi cùng nhau trong gan nhiễm mỡ liên quan chuyển hóa. Cả 4 nhóm này cải thiện theo cùng một hướng: giảm cân, giảm đường/tinh bột nhanh, giảm rượu bia, tăng vận động.
+    </div>
+  </div>
+
+  <footer>Dữ liệu tự động lưu lại cho những lần mở app sau.<br>Không phải công cụ chẩn đoán y khoa.</footer>
+</div>
+
+<div class="toast" id="toast">Đã lưu</div>
+
+<script>
+const STORAGE_KEY = 'gankhoe-data-v1';
+let state = {
+  height: 178,
+  weight: 79,
+  weightLogs: [],
+  checklist: [
+    {id:'water', label:'Uống ≥ 2L nước', done:false},
+    {id:'exercise', label:'Vận động 30 phút', done:false},
+    {id:'noalcohol', label:'Không rượu bia', done:false},
+    {id:'sugar', label:'Hạn chế đồ ngọt', done:false},
+    {id:'veggie', label:'Ăn đủ rau xanh', done:false},
+    {id:'sleep', label:'Ngủ trước 23h', done:false},
+  ]
+};
+let saveTimer = null;
+let mealIndex = 0;
+
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+// ---------- Meal plans ----------
+const mealPlans = [
+  {
+    sang: 'Phở gà (ít bánh phở, nhiều thịt & rau thơm) + 1 quả chuối',
+    trua: 'Cơm gạo lứt (1 chén) + cá kho (ít đường) + canh rau ngót + dưa leo',
+    phu: 'Sữa chua không đường + vài hạt óc chó',
+    toi: 'Ức gà áp chảo ít dầu + rau củ luộc (bông cải, cà rốt) + 1/2 chén cơm',
+  },
+  {
+    sang: 'Bún gạo lứt trộn ức gà xé + rau sống',
+    trua: 'Cơm (3/4 chén) + đậu hũ sốt cà + canh bí đỏ + rau muống luộc',
+    phu: 'Trái cây ít ngọt (bưởi, táo) 1 phần',
+    toi: 'Cá hấp gừng + salad rau trộn dầu ô liu ít + 1/2 chén cơm',
+  },
+  {
+    sang: 'Yến mạch nấu sữa không đường + trứng luộc + trái cây',
+    trua: 'Cơm gạo lứt + thịt bò xào ít dầu với nhiều rau củ + canh chua cá',
+    phu: 'Sữa hạt không đường',
+    toi: 'Tôm hấp/luộc + rau lang luộc + 1/2 chén cơm',
+  },
+  {
+    sang: 'Bánh mì nguyên cám + trứng ốp la ít dầu + rau sống',
+    trua: 'Cơm (3/4 chén) + thịt heo nạc kho + canh mồng tơi + cà chua',
+    phu: 'Vài lát dưa hấu hoặc thanh long',
+    toi: 'Cá lóc kho tộ ít đường + rau muống xào tỏi ít dầu + 1/2 chén cơm',
+  },
+];
+
+function renderMeal(){
+  const p = mealPlans[mealIndex];
+  document.getElementById('mealDayNum').textContent = mealIndex + 1;
+  document.getElementById('mealPlanBody').innerHTML = `
+    <div class="meal-slot"><div class="meal-time">Sáng</div><div class="meal-desc">${p.sang}</div></div>
+    <div class="meal-slot"><div class="meal-time">Trưa</div><div class="meal-desc">${p.trua}</div></div>
+    <div class="meal-slot"><div class="meal-time">Xế</div><div class="meal-desc">${p.phu}</div></div>
+    <div class="meal-slot"><div class="meal-time">Tối</div><div class="meal-desc">${p.toi}</div></div>
+  `;
+}
+
+function shuffleMeal(){
+  let next;
+  do{ next = Math.floor(Math.random()*mealPlans.length); } while(next === mealIndex && mealPlans.length>1);
+  mealIndex = next;
+  renderMeal();
+}
+
+// ---------- Exercise schedule ----------
+const weekPlan = [
+  {day:'Thứ 2', type:'Đi bộ nhanh / chạy bộ nhẹ', detail:'30 phút, nhịp tim vừa phải'},
+  {day:'Thứ 3', type:'Tập kháng lực toàn thân', detail:'20–30 phút — squat, chống đẩy, plank'},
+  {day:'Thứ 4', type:'Đạp xe hoặc bơi', detail:'30–40 phút, cường độ vừa'},
+  {day:'Thứ 5', type:'Nghỉ ngơi / đi bộ nhẹ', detail:'15–20 phút thư giãn'},
+  {day:'Thứ 6', type:'Tập kháng lực toàn thân', detail:'20–30 phút — tăng dần mức tạ/độ khó'},
+  {day:'Thứ 7', type:'Vận động ngoài trời', detail:'45–60 phút — bóng đá, cầu lông, leo cầu thang...'},
+  {day:'CN', type:'Đi bộ nhẹ + giãn cơ', detail:'20 phút, phục hồi cơ thể'},
+];
+
+function renderWeekSchedule(){
+  document.getElementById('weekSchedule').innerHTML = weekPlan.map(d => `
+    <div class="week-row">
+      <div class="week-day">${d.day}</div>
+      <div class="week-body">
+        <div class="week-type">${d.type}</div>
+        <div class="week-detail">${d.detail}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ---------- Persistence ----------
+async function loadState(){
+  try{
+    const res = await window.storage.get(STORAGE_KEY, false);
+    if(res && res.value){
+      const saved = JSON.parse(res.value);
+      state.height = saved.height ?? state.height;
+      state.weight = saved.weight ?? state.weight;
+      state.weightLogs = saved.weightLogs ?? [];
+      if(saved.checklist && saved.checklistDate === todayISO()){
+        state.checklist = saved.checklist;
+      }
+    }
+  }catch(e){
+    console.log('Không có dữ liệu đã lưu trước đó, bắt đầu mới.');
+  }
+}
+
+async function persist(){
+  const pill = document.getElementById('savePill');
+  const text = document.getElementById('saveText');
+  pill.classList.add('saving');
+  text.textContent = 'Đang lưu…';
+  try{
+    await window.storage.set(STORAGE_KEY, JSON.stringify({
+      height: state.height,
+      weight: state.weight,
+      weightLogs: state.weightLogs,
+      checklist: state.checklist,
+      checklistDate: todayISO()
+    }), false);
+    text.textContent = 'Đã lưu';
+    showToast('Đã lưu vào bộ nhớ');
+  }catch(e){
+    text.textContent = 'Lỗi lưu';
+  }
+  pill.classList.remove('saving');
+}
+
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  document.getElementById('saveText').textContent = 'Đang lưu…';
+  document.getElementById('savePill').classList.add('saving');
+  saveTimer = setTimeout(persist, 500);
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 1600);
+}
+
+// ---------- Tabs ----------
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-'+tab.dataset.tab).classList.add('active');
+    tab.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+  });
+});
+
+// ---------- BMI ----------
+function recalcBmi(save){
+  const h = parseFloat(document.getElementById('hInput').value) || 178;
+  const w = parseFloat(document.getElementById('wInput').value) || 79;
+  state.height = h; state.weight = w;
+  const bmi = w / Math.pow(h/100, 2);
+  document.getElementById('bmiNum').textContent = bmi.toFixed(1);
+  document.getElementById('heroWeight').textContent = w.toFixed(1);
+  document.getElementById('heroBmi').textContent = bmi.toFixed(1);
+
+  let tag, pct;
+  if(bmi < 18.5){ tag='Thiếu cân'; pct=15; }
+  else if(bmi < 23){ tag='Bình thường'; pct=40; }
+  else if(bmi < 25){ tag='Thừa cân nhẹ'; pct=62; }
+  else if(bmi < 30){ tag='Béo phì độ I (châu Á)'; pct=80; }
+  else { tag='Béo phì độ II+'; pct=95; }
+  document.getElementById('bmiTag').textContent = tag;
+  document.getElementById('bmiBar').style.width = pct + '%';
+  if(save) scheduleSave();
+}
+
+// ---------- Weight logs ----------
+function addWeightLog(){
+  const dateEl = document.getElementById('logDate');
+  const wEl = document.getElementById('logWeight');
+  const date = dateEl.value || todayISO();
+  const weight = parseFloat(wEl.value);
+  if(!weight){ wEl.focus(); return; }
+  state.weightLogs = state.weightLogs.filter(l=>l.date !== date);
+  state.weightLogs.push({date, weight});
+  state.weightLogs.sort((a,b)=> a.date.localeCompare(b.date));
+  wEl.value='';
+  renderWeightLogs();
+  document.getElementById('wInput').value = weight;
+  recalcBmi(false);
+  scheduleSave();
+}
+
+function deleteWeightLog(date){
+  state.weightLogs = state.weightLogs.filter(l=>l.date !== date);
+  renderWeightLogs();
+  scheduleSave();
+}
+
+function renderWeightLogs(){
+  const list = document.getElementById('weightList');
+  const chartWrap = document.getElementById('chartWrap');
+  if(state.weightLogs.length === 0){
+    list.innerHTML = '<div class="empty">Chưa có dữ liệu. Ghi nhận cân nặng đầu tiên ở trên.</div>';
+    chartWrap.innerHTML = '';
+    return;
+  }
+  let html = '';
+  for(let i = state.weightLogs.length - 1; i >= 0; i--){
+    const cur = state.weightLogs[i];
+    const prev = state.weightLogs[i-1];
+    let deltaHtml = '';
+    if(prev){
+      const d = cur.weight - prev.weight;
+      const cls = d < -0.05 ? 'delta-down' : d > 0.05 ? 'delta-up' : 'delta-flat';
+      const sign = d > 0 ? '+' : '';
+      deltaHtml = `<span class="log-delta ${cls}">${sign}${d.toFixed(1)}kg</span>`;
+    }
+    html += `<div class="log-item"><span>${cur.date}</span><span style="display:flex;align-items:center;gap:8px;">${cur.weight.toFixed(1)}kg ${deltaHtml}<button class="del-btn" onclick="deleteWeightLog('${cur.date}')">✕</button></span></div>`;
+  }
+  list.innerHTML = html;
+
+  const W = 460, H = 130, pad = 24;
+  const weights = state.weightLogs.map(l=>l.weight);
+  const min = Math.min(...weights) - 1;
+  const max = Math.max(...weights) + 1;
+  const n = state.weightLogs.length;
+  const xStep = n > 1 ? (W - pad*2) / (n-1) : 0;
+  const points = state.weightLogs.map((l,i)=>{
+    const x = pad + i*xStep;
+    const y = H - pad - ((l.weight - min)/(max-min))*(H - pad*2);
+    return [x,y];
+  });
+  const path = points.map((p,i)=> (i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  const dots = points.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" fill="#c8842c"/>`).join('');
+  chartWrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" style="margin-top:6px;">
+    <line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#cfcbb8" stroke-width="1"/>
+    <path d="${path}" fill="none" stroke="#2f5d4f" stroke-width="2.5"/>
+    ${dots}
+    <text x="${pad}" y="14" font-family="monospace" font-weight="700" font-size="10" fill="#48564c">${max.toFixed(0)}kg</text>
+    <text x="${pad}" y="${H-pad-4}" font-family="monospace" font-weight="700" font-size="10" fill="#48564c">${min.toFixed(0)}kg</text>
+  </svg>`;
+}
+
+// ---------- Checklist ----------
+function renderChecklist(){
+  const grid = document.getElementById('checklist');
+  grid.innerHTML = state.checklist.map(item => `
+    <div class="check-item ${item.done?'done':''}" onclick="toggleCheck('${item.id}')">
+      <div class="check-box"></div><span>${item.label}</span>
+    </div>`).join('');
+  const doneCount = state.checklist.filter(c=>c.done).length;
+  document.getElementById('streakText').textContent = `${doneCount}/${state.checklist.length} hoàn thành hôm nay`;
+  document.getElementById('streakBar').style.width = (doneCount/state.checklist.length*100) + '%';
+}
+
+function toggleCheck(id){
+  const item = state.checklist.find(c=>c.id===id);
+  item.done = !item.done;
+  renderChecklist();
+  scheduleSave();
+}
+
+// ---------- Init ----------
+async function init(){
+  document.getElementById('app').classList.add('skel');
+  await loadState();
+  document.getElementById('app').classList.remove('skel');
+
+  document.getElementById('hInput').value = state.height;
+  document.getElementById('wInput').value = state.weight;
+  document.getElementById('logDate').value = todayISO();
+
+  recalcBmi(false);
+  renderWeightLogs();
+  renderChecklist();
+  renderMeal();
+  renderWeekSchedule();
+}
+init();
+</script>
+</body>
+</html>
