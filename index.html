@@ -131,6 +131,7 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   .skel{opacity:.4; filter:blur(1px);}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div class="wrap" id="app">
@@ -141,8 +142,13 @@
         <p class="eyebrow">Nhật ký sức khỏe</p>
         <h1>GAN KHỎE</h1>
       </div>
-      <div class="save-pill" id="savePill"><span class="save-dot"></span><span id="saveText">Đã lưu</span></div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+        <div class="save-pill" id="savePill"><span class="save-dot"></span><span id="saveText">Chưa kết nối Drive</span></div>
+        <button id="googleSignInBtn" type="button" onclick="signInWithGoogle()" style="border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.14);color:#fff;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;backdrop-filter:blur(10px);">Đăng nhập Google</button>
+        <button id="googleSignOutBtn" type="button" onclick="signOutGoogle()" style="display:none;border:0;background:transparent;color:rgba(255,255,255,.8);font-size:11px;cursor:pointer;">Đăng xuất</button>
+      </div>
     </div>
+    <div id="googleUser" style="display:none;margin-top:10px;font-size:12px;color:rgba(255,255,255,.85);text-align:right;"></div>
     <div class="hero-stats">
       <div class="hstat"><div class="n">178</div><div class="l">cm</div></div>
       <div class="hstat"><div class="n" id="heroWeight">79.0</div><div class="l">kg hiện tại</div></div>
@@ -294,8 +300,6 @@ let state = {
 let saveTimer = null;
 let mealIndex = 0;
 
-function todayISO(){ return new Date().toISOString().slice(0,10); }
-
 // ---------- Meal plans ----------
 const mealPlans = [
   {
@@ -365,60 +369,311 @@ function renderWeekSchedule(){
   `).join('');
 }
 
-// ---------- Persistence ----------
-async function loadState(){
-  try{
-    const res = await window.storage.get(STORAGE_KEY, false);
-    if(res && res.value){
-      const saved = JSON.parse(res.value);
-      state.height = saved.height ?? state.height;
-      state.weight = saved.weight ?? state.weight;
-      state.weightLogs = saved.weightLogs ?? [];
-      if(saved.checklist && saved.checklistDate === todayISO()){
-        state.checklist = saved.checklist;
-      }
-    }
-  }catch(e){
-    console.log('Không có dữ liệu đã lưu trước đó, bắt đầu mới.');
-  }
-}
+// ---------- Google Drive persistence ----------
+const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const DRIVE_FILE_NAME = 'gankhoe-data-v1.json';
 
-async function persist(){
+let googleTokenClient = null;
+let accessToken = null;
+let driveFileId = null;
+let saveTimer = null;
+
+function setSaveStatus(text, saving=false, error=false){
   const pill = document.getElementById('savePill');
-  const text = document.getElementById('saveText');
-  pill.classList.add('saving');
-  text.textContent = 'Đang lưu…';
-  try{
-    await window.storage.set(STORAGE_KEY, JSON.stringify({
-      height: state.height,
-      weight: state.weight,
-      weightLogs: state.weightLogs,
-      checklist: state.checklist,
-      checklistDate: todayISO()
-    }), false);
-    text.textContent = 'Đã lưu';
-    showToast('Đã lưu vào bộ nhớ');
-  }catch(e){
-    text.textContent = 'Lỗi lưu';
-  }
-  pill.classList.remove('saving');
+  const textEl = document.getElementById('saveText');
+  if(!pill || !textEl) return;
+  textEl.textContent = text;
+  pill.classList.toggle('saving', saving);
+  pill.style.background = error ? 'rgba(180,40,20,.35)' : '';
 }
 
+function initGoogleAuth(){
+  if(!window.google?.accounts?.oauth2){
+    setTimeout(initGoogleAuth, 300);
+    return;
+  }
+  googleTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: async (response) => {
+      if(response.error){
+        console.error('Google OAuth error:', response);
+        setSaveStatus('Lỗi đăng nhập Google', false, true);
+        return;
+      }
+      accessToken = response.access_token;
+      await loadGoogleProfile();
+      await loadState();
+      refreshUI();
+    }
+  });
+}
+
+function signInWithGoogle(){
+  if(GOOGLE_CLIENT_ID.startsWith('YOUR_')){
+    alert('Bạn chưa cấu hình GOOGLE_CLIENT_ID trong index.html.');
+    return;
+  }
+  if(!googleTokenClient){
+    initGoogleAuth();
+    setTimeout(signInWithGoogle, 500);
+    return;
+  }
+  googleTokenClient.requestAccessToken({prompt:'select_account'});
+}
+
+function signOutGoogle(){
+  if(accessToken && window.google?.accounts?.oauth2){
+    google.accounts.oauth2.revoke(accessToken, () => {});
+  }
+  accessToken = null;
+  driveFileId = null;
+  document.getElementById('googleUser').style.display = 'none';
+  document.getElementById('googleSignInBtn').style.display = '';
+  document.getElementById('googleSignOutBtn').style.display = 'none';
+  setSaveStatus('Chưa kết nối Drive');
+  showToast('Đã đăng xuất Google');
+}
+
+async function loadGoogleProfile(){
+  try{
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers:{Authorization:'Bearer '+accessToken}
+    });
+    if(!res.ok) throw new Error('Không đọc được tài khoản Google');
+    const u = await res.json();
+    const el = document.getElementById('googleUser');
+    el.textContent = `Đang lưu vào Drive: ${u.name || u.email || 'Tài khoản Google'}`;
+    el.style.display = 'block';
+    document.getElementById('googleSignInBtn').style.display = 'none';
+    document.getElementById('googleSignOutBtn').style.display = '';
+    setSaveStatus('Đã kết nối Drive');
+  }catch(e){
+    console.error(e);
+    setSaveStatus('Đã đăng nhập', false, true);
+  }
+}
+
+async function driveRequest(url, options={}){
+  if(!accessToken) throw new Error('Chưa đăng nhập Google');
+  const headers = new Headers(options.headers || {});
+  headers.set('Authorization', 'Bearer '+accessToken);
+  return fetch(url, {...options, headers});
+}
+
+async function findDriveFile(){
+  const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and 'appDataFolder' in parents and trashed=false`);
+  const res = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=appDataFolder&fields=files(id,name,modifiedTime)&pageSize=1`);
+  if(!res.ok) throw new Error('Không tìm thấy file trên Google Drive');
+  const data = await res.json();
+  driveFileId = data.files?.[0]?.id || null;
+  return driveFileId;
+}
+
+async function readDriveState(){
+  const id = await findDriveFile();
+  if(!id) return null;
+  const res = await driveRequest(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media`);
+  if(!res.ok) throw new Error('Không đọc được dữ liệu Drive');
+  return await res.json();
+}
+
+async function writeDriveState(payload){
+  const body = JSON.stringify(payload);
+  let res;
+  if(!driveFileId){
+    const metadata = {name:DRIVE_FILE_NAME, parents:['appDataFolder'], mimeType:'application/json'};
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], {type:'application/json'}));
+    form.append('file', new Blob([body], {type:'application/json'}));
+    res = await driveRequest('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {method:'POST', body:form});
+    if(!res.ok) throw new Error('Không tạo được file dữ liệu trên Drive');
+    const data = await res.json();
+    driveFileId = data.id;
+  }else{
+    res = await driveRequest(`https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(driveFileId)}?uploadType=media`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body});
+    if(!res.ok) throw new Error('Không cập nhật được file dữ liệu trên Drive');
+  }
+}
+
+function localLoadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return;
+    const saved = JSON.parse(raw);
+    state.height = saved.height ?? state.height;
+    state.weight = saved.weight ?? state.weight;
+    state.weightLogs = saved.weightLogs ?? [];
+    if(saved.checklist && saved.checklistDate === todayISO()) state.checklist = saved.checklist;
+  }catch(e){ console.warn('Không đọc được localStorage', e); }
+}
+
+// ---------- Google Drive: 2-way sync ----------
+const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com';
+const DRIVE_FILE_NAME = 'gankhoe-data-v1.json';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+
+let accessToken = null, driveFileId = null, saveTimer = null, drivePollTimer = null;
+let lastRemoteModifiedTime = null, isApplyingRemote = false;
+
+function setSyncStatus(text, saving=false){
+  const el=document.getElementById('syncText'), pill=document.getElementById('syncPill');
+  if(el) el.textContent=text;
+  if(pill) pill.classList.toggle('saving', saving);
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+function currentPayload(){
+  return {
+    height:state.height, weight:state.weight, weightLogs:state.weightLogs,
+    checklist:state.checklist, checklistDate:todayISO(),
+    updatedAt:new Date().toISOString()
+  };
+}
+function saveLocalFallback(p){
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(p));}catch(e){}
+}
+function loadLocalFallback(){
+  try{
+    const r=localStorage.getItem(STORAGE_KEY);
+    if(!r)return;
+    const s=JSON.parse(r);
+    state.height=s.height??state.height; state.weight=s.weight??state.weight;
+    state.weightLogs=s.weightLogs??[];
+    if(s.checklist&&s.checklistDate===todayISO())state.checklist=s.checklist;
+  }catch(e){}
+}
+function applyPayload(s){
+  if(!s)return;
+  isApplyingRemote=true;
+  state.height=s.height??state.height; state.weight=s.weight??state.weight;
+  state.weightLogs=s.weightLogs??[];
+  if(s.checklist&&s.checklistDate===todayISO())state.checklist=s.checklist;
+  document.getElementById('hInput').value=state.height;
+  document.getElementById('wInput').value=state.weight;
+  recalcBmi(false); renderWeightLogs(); renderChecklist();
+  isApplyingRemote=false;
+}
+function loadGoogleScript(){
+  return new Promise((resolve,reject)=>{
+    if(window.google?.accounts?.oauth2)return resolve();
+    const s=document.createElement('script');
+    s.src='https://accounts.google.com/gsi/client';
+    s.onload=resolve; s.onerror=reject; document.head.appendChild(s);
+  });
+}
+async function initGoogleDrive(){
+  if(GOOGLE_CLIENT_ID.startsWith('YOUR_')){setSyncStatus('Chưa cấu hình Google');return;}
+  try{
+    await loadGoogleScript();
+    window.googleTokenClient=google.accounts.oauth2.initTokenClient({
+      client_id:GOOGLE_CLIENT_ID, scope:DRIVE_SCOPE,
+      callback:async r=>{
+        if(r.error){setSyncStatus('Lỗi đăng nhập');return;}
+        accessToken=r.access_token; setSyncStatus('Đang đồng bộ…',true);
+        await initialDriveSync(); startDrivePolling();
+      }
+    });
+  }catch(e){console.error(e);setSyncStatus('Không tải được Google');}
+}
+async function googleSignIn(){
+  if(!window.googleTokenClient)await initGoogleDrive();
+  if(window.googleTokenClient)window.googleTokenClient.requestAccessToken({prompt:'select_account'});
+}
+async function driveFetch(url,opt={}){
+  const h=new Headers(opt.headers||{}); h.set('Authorization','Bearer '+accessToken);
+  return fetch(url,{...opt,headers:h});
+}
+async function findDriveFile(){
+  const q=encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+  const r=await driveFetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name,modifiedTime)`);
+  if(!r.ok)throw Error('Drive search failed'); const d=await r.json(); return d.files?.[0]||null;
+}
+async function createDriveFile(p){
+  const meta={name:DRIVE_FILE_NAME,parents:['appDataFolder'],mimeType:'application/json'};
+  const b='gankhoe'+Date.now();
+  const body=`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(p)}\r\n--${b}--`;
+  const r=await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime',{
+    method:'POST',headers:{'Content-Type':`multipart/related; boundary=${b}`},body});
+  if(!r.ok)throw Error('Drive create failed'); return r.json();
+}
+async function updateDriveFile(p){
+  const r=await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`,{
+    method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
+  if(!r.ok)throw Error('Drive update failed'); return r.json();
+}
+async function readDriveFile(){
+  const r=await driveFetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`);
+  if(!r.ok)throw Error('Drive read failed'); return r.json();
+}
+async function initialDriveSync(){
+  try{
+    const f=await findDriveFile();
+    if(!f){
+      const p=currentPayload(), c=await createDriveFile(p);
+      driveFileId=c.id; lastRemoteModifiedTime=c.modifiedTime||null; saveLocalFallback(p);
+    }else{
+      driveFileId=f.id;
+      const remote=await readDriveFile();
+      const lr=localStorage.getItem(STORAGE_KEY), local=lr?JSON.parse(lr):null;
+      const rt=Date.parse(remote.updatedAt||0), lt=Date.parse(local?.updatedAt||0);
+      if(lt>rt){await updateDriveFile(currentPayload());}
+      else{applyPayload(remote);saveLocalFallback(remote);}
+      lastRemoteModifiedTime=f.modifiedTime||null;
+    }
+    setSyncStatus('Đã đồng bộ Drive');
+  }catch(e){console.error(e);setSyncStatus('Lỗi đồng bộ');}
+}
+async function syncToDrive(){
+  if(isApplyingRemote||!accessToken||!driveFileId)return;
+  try{
+    setSyncStatus('Đang lưu Drive…',true);
+    const p=currentPayload(); saveLocalFallback(p);
+    const u=await updateDriveFile(p); lastRemoteModifiedTime=u.modifiedTime||lastRemoteModifiedTime;
+    setSyncStatus('Đã đồng bộ Drive'); showToast('Đã đồng bộ Google Drive');
+  }catch(e){console.error(e);setSyncStatus('Lỗi lưu Drive');}
+}
 function scheduleSave(){
   clearTimeout(saveTimer);
-  document.getElementById('saveText').textContent = 'Đang lưu…';
+  document.getElementById('saveText').textContent='Đang lưu…';
   document.getElementById('savePill').classList.add('saving');
-  saveTimer = setTimeout(persist, 500);
+  saveTimer=setTimeout(()=>{
+    const p=currentPayload();saveLocalFallback(p);
+    document.getElementById('saveText').textContent='Đã lưu';
+    document.getElementById('savePill').classList.remove('saving');
+    if(accessToken){clearTimeout(saveTimer);setTimeout(syncToDrive,300);}
+  },300);
 }
-
-function showToast(msg){
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(()=> t.classList.remove('show'), 1600);
+async function pollDrive(){
+  if(!accessToken||!driveFileId||document.hidden)return;
+  try{
+    const r=await driveFetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?fields=id,modifiedTime`);
+    if(!r.ok)return; const m=await r.json();
+    if(m.modifiedTime!==lastRemoteModifiedTime){
+      const remote=await readDriveFile(), lr=localStorage.getItem(STORAGE_KEY);
+      const local=lr?JSON.parse(lr):null;
+      if(Date.parse(remote.updatedAt||0)>Date.parse(local?.updatedAt||0)){
+        applyPayload(remote);saveLocalFallback(remote);
+        setSyncStatus('Đã nhận cập nhật');showToast('Đã cập nhật từ thiết bị khác');
+      }
+      lastRemoteModifiedTime=m.modifiedTime;
+    }
+  }catch(e){console.warn(e);}
+}
+function startDrivePolling(){
+  clearInterval(drivePollTimer); drivePollTimer=setInterval(pollDrive,3000);
+}
+function ensureGoogleButton(){
+  if(document.getElementById('googleLoginBtn'))return;
+  const top=document.querySelector('.hero-top'), box=document.createElement('div');
+  box.style.cssText='display:flex;flex-direction:column;align-items:flex-end;gap:6px;';
+  box.innerHTML='<button id="googleLoginBtn" class="save-pill" style="cursor:pointer;border:1px solid rgba(255,255,255,.28)" onclick="googleSignIn()">G&nbsp; Đăng nhập Google</button><div class="save-pill" id="syncPill"><span class="save-dot"></span><span id="syncText">Chưa kết nối Drive</span></div>';
+  top.appendChild(box);
 }
 
 // ---------- Tabs ----------
+
 document.querySelectorAll('.tab').forEach(tab=>{
   tab.addEventListener('click', ()=>{
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -537,10 +792,17 @@ function toggleCheck(id){
   scheduleSave();
 }
 
+function refreshUI(){
+  if(accessToken){
+    document.getElementById('googleSignInBtn').style.display = 'none';
+    document.getElementById('googleSignOutBtn').style.display = '';
+  }
+}
+
 // ---------- Init ----------
 async function init(){
   document.getElementById('app').classList.add('skel');
-  await loadState();
+  loadLocalFallback();
   document.getElementById('app').classList.remove('skel');
 
   document.getElementById('hInput').value = state.height;
@@ -554,6 +816,7 @@ async function init(){
   renderWeekSchedule();
 }
 init();
+window.addEventListener('load', initGoogleAuth);
 </script>
 </body>
 </html>
