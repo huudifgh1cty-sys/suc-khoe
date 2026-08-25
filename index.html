@@ -1,122 +1,791 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gan Khỏe - Nhật ký sức khỏe</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>GAN KHỎE</title>
+<style>
+  html{ color-scheme: light dark; }
+  :root{
+    --ink:#12241c;
+    --paper:#eef1e8;
+    --panel:#ffffff;
+    --moss:#2f5d4f;
+    --moss-dark:#16302a;
+    --moss-light: #e4ece7;
+    --amber:#c8842c;
+    --amber-soft:#f4e3c8;
+    --amber-ink:#6b430f;
+    --danger:#9c3821;
+    --danger-soft:#f6ddd7;
+    --ok-ink:#195c33;
+    --ok-soft:#dcefe0;
+    --muted:#48564c;
+    --muted-soft:#6b7a6f;
+    --line: rgba(18,36,28,0.14);
+    --mono: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    --ease: cubic-bezier(.22,1,.36,1);
+    --accent: var(--moss-dark);
+    --tip-ink: #3a2a0f;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#eaf0ea;
+      --paper:#0f1a15;
+      --panel:#1a2822;
+      --moss:#4f9c81;
+      --moss-dark:#0c1f19;
+      --moss-light:#1e3129;
+      --amber:#e0a24d;
+      --amber-soft:#3a2c14;
+      --amber-ink:#f0c785;
+      --danger:#e37b5e;
+      --danger-soft:#3a201a;
+      --ok-ink:#7fd6a0;
+      --ok-soft:#183226;
+      --muted:#b7c4bb;
+      --muted-soft:#8fa198;
+      --line: rgba(234,240,234,0.14);
+      --accent: #7fd6a0;
+      --tip-ink: #f3e4c9;
+    }
+    .hero{ box-shadow: 0 4px 18px rgba(0,0,0,0.45); }
+    .card{ box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 20px -12px rgba(0,0,0,0.5); }
+    input[type=number], input[type=date]{ background:#101c17; color:var(--ink); }
+    .check-item{ background:#101c17; }
+    .bar-track, .streak-bar-track{ background:#25352c; }
+    .bmi-tag{ color:var(--amber-ink); }
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth; background:#f5f5f7;}
+  body{
+    margin:0; background:#f5f5f7; color:#1d1d1f;
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    min-height:100vh; font-size:15px; line-height:1.5; letter-spacing:-.01em;
+  }
+  input, select, textarea, button{ color-scheme: light dark; font-family:inherit; }
+  button{ -webkit-tap-highlight-color:transparent; }
+  @media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important;} }
+  .wrap{max-width:620px;margin:0 auto;padding-bottom:100px;}
 
-  <!-- Cấu hình Icon cho màn hình chính (Tránh bị chữ G) -->
-  <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="icon.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="icon.png">
+  .hero{
+    background:linear-gradient(135deg,#0d3b2e 0%,#1b6a52 58%,#2f8a69 100%);
+    color:#fff; padding:26px 20px 22px; position:sticky; top:0; z-index:30;
+    box-shadow:0 10px 30px rgba(15,55,42,.16); backdrop-filter:blur(18px);
+  }
+  .hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;}
+  .eyebrow{font-size:12px;letter-spacing:.01em;color:rgba(255,255,255,.72);margin:0 0 5px;font-weight:600;text-transform:none;}
+  .hero h1{font-size:28px;line-height:1.08;margin:0;font-weight:800;letter-spacing:-.04em;color:#fff;}
+  .save-pill{font-size:12px;font-weight:600;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:7px 11px;display:flex;align-items:center;gap:6px;color:#fff;white-space:nowrap;transition:.3s var(--ease);backdrop-filter:blur(10px);}
+  .save-dot{width:7px;height:7px;border-radius:50%;background:#8fd6a8;}
+  .save-pill.saving .save-dot{background:var(--amber);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
-  <!-- Thư viện Google Identity Services SDK -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  .hero-stats{display:flex;gap:8px;margin-top:18px;}
+  .hstat{flex:1;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.16);border-radius:18px;padding:11px 7px;text-align:center;backdrop-filter:blur(12px);}
+  .hstat .n{font-size:20px;font-weight:750;letter-spacing:-.03em;color:#fff;}
+  .hstat .l{font-size:10px;letter-spacing:.01em;color:rgba(255,255,255,.74);margin-top:2px;text-transform:none;}
 
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; max-width: 500px; margin: auto; }
-    .status-bar { padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold; }
-    .logged-out { background-color: #f8d7da; color: #721c24; }
-    .logged-in { background-color: #d4edda; color: #155724; }
-    button { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; }
-    .btn-login { background-color: #4285f4; color: white; }
-    .btn-logout { background-color: #dc3545; color: white; margin-left: 10px; }
-  </style>
+  .tabbar{display:flex;gap:6px;padding:10px 12px;background:rgba(245,245,247,.88);position:sticky;top:0;z-index:29;overflow-x:auto;scrollbar-width:none;backdrop-filter:blur(20px);border-bottom:1px solid rgba(0,0,0,.06);}
+  .tabbar::-webkit-scrollbar{display:none;}
+  .tab{flex:0 0 auto;text-align:center;padding:9px 13px;border-radius:999px;font-size:13px;letter-spacing:-.01em;font-weight:600;color:#6e6e73;cursor:pointer;border:none;white-space:nowrap;transition:all .25s var(--ease);}
+  .tab.active{color:#fff;background:#1d1d1f;box-shadow:0 4px 14px rgba(0,0,0,.12);}
+
+  .panel{display:none;padding:22px 16px 4px;animation:fadeUp .35s var(--ease);}
+  .panel.active{display:block;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  h2.sec-title{font-size:22px;margin:2px 4px 14px;font-weight:750;letter-spacing:-.035em;color:#1d1d1f;}
+  .card{background:rgba(255,255,255,.92);border:1px solid rgba(0,0,0,.06);border-radius:24px;padding:18px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.035),0 12px 32px rgba(0,0,0,.035);}
+  .bmi-row{display:flex;align-items:baseline;gap:10px;}
+  .bmi-num{font-size:44px;font-weight:800;letter-spacing:-.05em;color:#1d1d1f;transition:color .3s;}
+  .bmi-tag{font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;background:var(--amber-soft);color:var(--amber-ink);display:inline-block;margin-top:6px;}
+  .bar-track{height:10px;border-radius:999px;background:#e5e5ea;overflow:hidden;margin-top:14px;}
+  .bar-fill{height:100%;background:linear-gradient(90deg,#34c759,#ff9f0a);border-radius:999px;transition:width .5s var(--ease);}
+  .bar-scale{display:flex;justify-content:space-between;font-size:10px;color:#8e8e93;margin-top:5px;font-weight:600;}
+  label.field{display:block;font-size:11px;text-transform:none;letter-spacing:.01em;color:#6e6e73;font-weight:650;margin:0 0 6px 2px;}
+  input[type=number],input[type=date]{width:100%;padding:13px 12px;border-radius:14px;border:1px solid rgba(60,60,67,.18);background:#f2f2f7;font-size:16px;color:#1d1d1f;transition:border-color .2s,box-shadow .2s,background .2s;}
+  input:focus{outline:none;border-color:#007aff;background:#fff;box-shadow:0 0 0 4px rgba(0,122,255,.12);}
+  .row2{display:flex;gap:10px;}.row2>div{flex:1;}
+  .btn{width:100%;padding:14px 16px;border-radius:16px;border:none;background:#1d1d1f;color:#fff;font-size:15px;font-weight:700;letter-spacing:-.01em;text-transform:none;cursor:pointer;margin-top:12px;transition:transform .15s var(--ease),opacity .2s,box-shadow .2s;box-shadow:0 8px 18px rgba(0,0,0,.1);}
+  .btn:active{transform:scale(.98);opacity:.82;}
+  .btn.alt{background:#ff9f0a;color:#fff;}
+  .log-item{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(60,60,67,.12);font-size:14px;color:#1d1d1f;animation:fadeUp .3s var(--ease);}
+  .log-item:last-child{border-bottom:none;}
+  .log-delta{font-size:11px;font-weight:700;padding:4px 8px;border-radius:999px;}
+  .delta-down{background:#e7f8ed;color:#248a3d;}.delta-up{background:#ffebe8;color:#d70015;}.delta-flat{background:#f2f2f7;color:#6e6e73;}
+  .empty{font-size:13px;color:#8e8e93;padding:14px 0;text-align:center;}.del-btn{border:none;background:none;color:#ff3b30;font-size:16px;cursor:pointer;padding:4px 6px;font-weight:700;}
+  .check-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .check-item{display:flex;align-items:center;gap:9px;background:#f7f7f8;border:1px solid rgba(0,0,0,.05);border-radius:18px;padding:13px;font-size:14px;color:#1d1d1f;cursor:pointer;user-select:none;transition:.2s var(--ease);}
+  .check-item:active{transform:scale(.98);}.check-item.done{background:#1d1d1f;color:#fff;border-color:#1d1d1f;}
+  .check-box{width:18px;height:18px;border-radius:50%;border:2px solid #8e8e93;flex:none;position:relative;transition:.2s;}
+  .check-item.done .check-box{background:#30d158;border-color:#30d158;}.check-item.done .check-box::after{content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:900;}
+  .streak{font-size:12px;color:#1d1d1f;font-weight:700;margin-top:14px;text-align:center;}.streak-bar-track{height:6px;background:#e5e5ea;border-radius:999px;overflow:hidden;margin-top:9px;}.streak-bar-fill{height:100%;background:#30d158;border-radius:999px;transition:width .4s var(--ease);}
+  .lab-grid{display:flex;flex-direction:column;gap:0;}.lab-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(60,60,67,.12);}.lab-row:last-child{border:none;}.lab-name{font-size:15px;color:#1d1d1f;font-weight:600;}.lab-name small{display:block;font-size:11px;color:#8e8e93;font-weight:500;margin-top:2px;}.lab-val{font-size:16px;font-weight:750;text-align:right;color:#1d1d1f;}.lab-flag{font-size:10px;font-weight:700;padding:4px 7px;border-radius:999px;display:inline-block;margin-top:3px;}.flag-high{background:#ffebe8;color:#d70015;}.flag-ok{background:#e7f8ed;color:#248a3d;}
+  .tip{background:#fff7e6;border:1px solid rgba(255,159,10,.18);border-left:4px solid #ff9f0a;border-radius:18px;padding:13px 14px;font-size:14px;line-height:1.6;color:#5a3a00;margin-bottom:12px;}.tip b{color:#8a5700;}
+  .meal-slot{border-bottom:1px solid rgba(60,60,67,.12);padding:14px 0;}.meal-slot:last-child{border-bottom:none;}.meal-time{font-size:11px;font-weight:750;text-transform:none;letter-spacing:.02em;color:#007aff;margin-bottom:4px;}.meal-desc{font-size:15px;color:#1d1d1f;line-height:1.55;}.principle-list{margin:0;padding-left:18px;color:inherit;font-size:14px;line-height:1.7;}.principle-list li{margin-bottom:4px;}.principle-list b{color:#8a5700;}
+  .week-row{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-bottom:1px solid rgba(60,60,67,.12);}.week-row:last-child{border-bottom:none;}.week-day{font-weight:750;font-size:12px;color:#007aff;width:54px;flex:none;padding-top:2px;}.week-body{flex:1;}.week-type{font-size:15px;color:#1d1d1f;font-weight:650;}.week-detail{font-size:12px;color:#6e6e73;margin-top:3px;}
+  footer{padding:20px 24px 24px;text-align:center;font-size:11px;color:#8e8e93;line-height:1.6;}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(29,29,31,.92);color:#fff;font-size:13px;font-weight:600;padding:11px 16px;border-radius:999px;opacity:0;pointer-events:none;z-index:50;transition:opacity .3s var(--ease),transform .3s var(--ease);box-shadow:0 10px 30px rgba(0,0,0,.2);backdrop-filter:blur(18px);}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .skel{opacity:.4; filter:blur(1px);}
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+<div class="wrap" id="app">
 
-  <h2>Nhật ký sức khỏe GAN KHỎE</h2>
-
-  <!-- Hiển thị trạng thái kết nối -->
-  <div id="statusBox" class="status-bar logged-out">
-    <span id="statusText">Chưa kết nối Drive (Đã lưu local)</span>
+  <div class="hero">
+    <div class="hero-top">
+      <div>
+        <p class="eyebrow">Nhật ký sức khỏe</p>
+        <h1>GAN KHỎE</h1>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+        <div class="save-pill" id="savePill"><span class="save-dot"></span><span id="saveText">Chưa kết nối Drive</span></div>
+        <button id="googleSignInBtn" type="button" onclick="signInWithGoogle()" style="border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.14);color:#fff;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;backdrop-filter:blur(10px);">Đăng nhập Google</button>
+        <button id="googleSignOutBtn" type="button" onclick="signOutGoogle()" style="display:none;border:0;background:transparent;color:rgba(255,255,255,.8);font-size:11px;cursor:pointer;">Đăng xuất</button>
+      </div>
+    </div>
+    <div id="googleUser" style="display:none;margin-top:10px;font-size:12px;color:rgba(255,255,255,.85);text-align:right;"></div>
+    <div class="hero-stats">
+      <div class="hstat"><div class="n">178</div><div class="l">cm</div></div>
+      <div class="hstat"><div class="n" id="heroWeight">79.0</div><div class="l">kg hiện tại</div></div>
+      <div class="hstat"><div class="n" id="heroBmi">24.9</div><div class="l">BMI</div></div>
+    </div>
   </div>
 
-  <!-- Nút bấm điều khiển -->
-  <div style="text-align: center;">
-    <button id="btnLogin" class="btn-login" onclick="loginGoogle()">Đăng nhập Google</button>
-    <button id="btnLogout" class="btn-logout" onclick="logoutGoogle()" style="display: none;">Đăng xuất</button>
+  <div class="tabbar">
+    <div class="tab active" data-tab="tong-quan">Tổng quan</div>
+    <div class="tab" data-tab="can-nang">Cân nặng</div>
+    <div class="tab" data-tab="thoi-quen">Thói quen</div>
+    <div class="tab" data-tab="thuc-don">Thực đơn</div>
+    <div class="tab" data-tab="van-dong">Vận động</div>
+    <div class="tab" data-tab="xet-nghiem">Xét nghiệm</div>
   </div>
 
-  <script>
-    // === ĐÃ THAY CLIENT ID CỦA BẠN VÀO ĐÂY ===
-    const CLIENT_ID = '365249760461-ok13ql9ae57rttl0dkgn8b1ta653fgl7.apps.googleusercontent.com';
-    const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+  <!-- TỔNG QUAN -->
+  <div class="panel active" id="panel-tong-quan">
+    <h2 class="sec-title">Chỉ số cơ thể</h2>
+    <div class="card">
+      <div class="bmi-row">
+        <div>
+          <div class="bmi-num" id="bmiNum">24.9</div>
+          <div class="bmi-tag" id="bmiTag">Thừa cân nhẹ</div>
+        </div>
+      </div>
+      <div class="bar-track"><div class="bar-fill" id="bmiBar" style="width:62%"></div></div>
+      <div class="bar-scale"><span>18.5</span><span>23</span><span>25</span><span>30+</span></div>
+      <div class="row2" style="margin-top:16px;">
+        <div><label class="field">Chiều cao (cm)</label><input type="number" id="hInput" value="178"></div>
+        <div><label class="field">Cân nặng hiện tại (kg)</label><input type="number" id="wInput" value="79" step="0.1"></div>
+      </div>
+      <button class="btn" onclick="recalcBmi(true)">Tính lại BMI</button>
+    </div>
+    <div class="tip">
+      Với gan nhiễm mỡ, giảm <b>5–10% trọng lượng cơ thể</b> (khoảng 4–8kg) trong 3–6 tháng thường giúp giảm mỡ gan rõ rệt. Không cần giảm quá nhanh.
+    </div>
+    <div class="tip">
+      Công cụ này chỉ hỗ trợ theo dõi, <b>không thay thế</b> chỉ định của bác sĩ. Nên tái khám theo lịch hẹn.
+    </div>
+  </div>
 
-    let tokenClient;
+  <!-- CÂN NẶNG -->
+  <div class="panel" id="panel-can-nang">
+    <h2 class="sec-title">Nhật ký cân nặng</h2>
+    <div class="card">
+      <div class="row2">
+        <div><label class="field">Ngày</label><input type="date" id="logDate"></div>
+        <div><label class="field">Cân nặng (kg)</label><input type="number" id="logWeight" step="0.1" placeholder="vd: 78.5"></div>
+      </div>
+      <button class="btn" onclick="addWeightLog()">Ghi nhận</button>
+      <div class="chart-wrap" id="chartWrap"></div>
+    </div>
+    <div class="card" id="weightListCard">
+      <div id="weightList"></div>
+    </div>
+  </div>
 
-    window.onload = () => {
-      // Khởi tạo Google Token Client
-      tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPE,
-        callback: (response) => {
-          if (response.access_token) {
-            saveSession(response.access_token, response.expires_in);
-            updateUI(true);
-          }
-        },
-      });
+  <!-- THÓI QUEN -->
+  <div class="panel" id="panel-thoi-quen">
+    <h2 class="sec-title">Việc cần làm hôm nay</h2>
+    <div class="card">
+      <div class="check-grid" id="checklist"></div>
+      <div class="streak" id="streakText">0/6 hoàn thành</div>
+      <div class="streak-bar-track"><div class="streak-bar-fill" id="streakBar" style="width:0%"></div></div>
+    </div>
+  </div>
 
-      // Tự động kiểm tra và khôi phục phiên đăng nhập khi load trang
-      checkAutoLogin();
-    };
+  <!-- THỰC ĐƠN -->
+  <div class="panel" id="panel-thuc-don">
+    <h2 class="sec-title">Thực đơn gợi ý</h2>
+    <div class="tip">
+      Nguyên tắc chung cho gan nhiễm mỡ — không phải chế độ ăn kiêng khắt khe, chỉ là điều chỉnh thói quen:
+      <ul class="principle-list" style="margin-top:6px;">
+        <li><b>Giảm tinh bột tinh chế & đồ ngọt:</b> cơm trắng ít lại, hạn chế nước ngọt, bánh kẹo, trà sữa.</li>
+        <li><b>Ưu tiên đạm nạc:</b> cá, ức gà, đậu hũ, trứng thay vì thịt mỡ, đồ chiên rán.</li>
+        <li><b>Nhiều rau xanh & trái cây ít ngọt:</b> nên chiếm nửa đĩa ăn mỗi bữa.</li>
+        <li><b>Hạn chế tối đa rượu bia</b> — đây là yếu tố ảnh hưởng trực tiếp đến men gan.</li>
+        <li>Ưu tiên hấp, luộc, nướng thay vì chiên xào nhiều dầu mỡ.</li>
+      </ul>
+    </div>
 
-    // Hàm gọi popup đăng nhập
-    function loginGoogle() {
-      tokenClient.requestAccessToken({ prompt: '' });
-    }
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <div class="meal-time" style="margin:0;">Thực đơn mẫu — ngày <span id="mealDayNum">1</span></div>
+      </div>
+      <div id="mealPlanBody"></div>
+      <button class="btn alt" onclick="shuffleMeal()">Đổi thực đơn khác</button>
+    </div>
+  </div>
 
-    // Hàm đăng xuất
-    function logoutGoogle() {
-      localStorage.removeItem('drive_access_token');
-      localStorage.removeItem('drive_token_expires');
-      updateUI(false);
-    }
+  <!-- VẬN ĐỘNG -->
+  <div class="panel" id="panel-van-dong">
+    <h2 class="sec-title">Vận động trong tuần</h2>
+    <div class="tip">
+      Mục tiêu: <b>ít nhất 150 phút/tuần</b> vận động cường độ vừa (đi bộ nhanh, đạp xe...), kết hợp thêm bài tập kháng lực 2 buổi/tuần. Khởi động 5 phút trước và giãn cơ sau khi tập. Nếu có bệnh nền khác, nên hỏi ý kiến bác sĩ trước khi tăng cường độ.
+    </div>
+    <div class="card">
+      <div id="weekSchedule"></div>
+    </div>
+  </div>
 
-    // Lưu phiên đăng nhập vào bộ nhớ trình duyệt (localStorage)
-    function saveSession(token, expiresInSeconds) {
-      const expiresAt = Date.now() + (expiresInSeconds * 1000);
-      localStorage.setItem('drive_access_token', token);
-      localStorage.setItem('drive_token_expires', expiresAt);
-    }
+  <!-- XÉT NGHIỆM -->
+  <div class="panel" id="panel-xet-nghiem">
+    <h2 class="sec-title">Kết quả 23/08/2026</h2>
+    <div class="card">
+      <div class="lab-grid">
+        <div class="lab-row"><div class="lab-name">ALT (SGPT)<small>Men gan — chuẩn &lt; 50 U/L</small></div>
+          <div><div class="lab-val">81.6</div><span class="lab-flag flag-high">Cao ~1.6×</span></div></div>
+        <div class="lab-row"><div class="lab-name">AST (SGOT)<small>Men gan — chuẩn &lt; 50 U/L</small></div>
+          <div><div class="lab-val">39.2</div><span class="lab-flag flag-ok">Bình thường</span></div></div>
+        <div class="lab-row"><div class="lab-name">GGT<small>Men gan mật — chuẩn &lt; 55 U/L</small></div>
+          <div><div class="lab-val">50.8</div><span class="lab-flag flag-ok">Gần ngưỡng trên</span></div></div>
+        <div class="lab-row"><div class="lab-name">Cholesterol<small>Chuẩn &lt; 5.2 mmol/L</small></div>
+          <div><div class="lab-val">6.45</div><span class="lab-flag flag-high">Cao</span></div></div>
+        <div class="lab-row"><div class="lab-name">Triglyceride<small>Chuẩn &lt; 1.7 mmol/L</small></div>
+          <div><div class="lab-val">1.97</div><span class="lab-flag flag-high">Cao nhẹ</span></div></div>
+        <div class="lab-row"><div class="lab-name">LDL-C<small>Chuẩn &lt; 3.3 mmol/L</small></div>
+          <div><div class="lab-val">4.42</div><span class="lab-flag flag-high">Cao</span></div></div>
+        <div class="lab-row"><div class="lab-name">Acid Uric<small>Chuẩn 208–428 μmol/L</small></div>
+          <div><div class="lab-val">529.2</div><span class="lab-flag flag-high">Cao</span></div></div>
+      </div>
+    </div>
+    <div class="tip">
+      Men gan tăng + mỡ máu cao + acid uric cao + BMI ~25 thường đi cùng nhau trong gan nhiễm mỡ liên quan chuyển hóa. Cả 4 nhóm này cải thiện theo cùng một hướng: giảm cân, giảm đường/tinh bột nhanh, giảm rượu bia, tăng vận động.
+    </div>
+  </div>
 
-    // Kiểm tra tự động đăng nhập khi mở app
-    function checkAutoLogin() {
-      const token = localStorage.getItem('drive_access_token');
-      const expiresAt = localStorage.getItem('drive_token_expires');
+  <footer>Dữ liệu tự động lưu lại cho những lần mở app sau.<br>Không phải công cụ chẩn đoán y khoa.</footer>
+</div>
 
-      if (token && expiresAt && Date.now() < parseInt(expiresAt)) {
-        // Phiên làm việc còn hạn -> Giữ trạng thái đã đăng nhập
-        updateUI(true);
-      } else if (token) {
-        // Token hết hạn -> Xin lại token ngầm
-        loginGoogle();
-      } else {
-        updateUI(false);
+<div class="toast" id="toast">Đã lưu</div>
+
+<script>
+// CONFIG - GOOGLE CLIENT ID CỦA BẠN ĐÃ ĐƯỢC ĐIỀN
+const GOOGLE_CLIENT_ID = '365249760461-ok13ql9ae57rttl0dkgn8b1ta653fgl7.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const DRIVE_FILE_NAME = 'gankhoe-data-v1.json';
+const STORAGE_KEY = 'gankhoe-data-v1';
+
+// STATE MANAGEMENT
+let state = {
+  height: 178,
+  weight: 79,
+  weightLogs: [],
+  checklist: [
+    {id:'water', label:'Uống ≥ 2L nước', done:false},
+    {id:'exercise', label:'Vận động 30 phút', done:false},
+    {id:'noalcohol', label:'Không rượu bia', done:false},
+    {id:'sugar', label:'Hạn chế đồ ngọt', done:false},
+    {id:'veggie', label:'Ăn đủ rau xanh', done:false},
+    {id:'sleep', label:'Ngủ trước 23h', done:false},
+  ]
+};
+
+let googleTokenClient = null;
+let accessToken = null;
+let driveFileId = null;
+let saveTimer = null;
+let drivePollTimer = null;
+let lastRemoteModifiedTime = null;
+let isApplyingRemote = false;
+let mealIndex = 0;
+
+// HELPERS
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  if(!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function setSaveStatus(text, saving=false, error=false){
+  const pill = document.getElementById('savePill');
+  const textEl = document.getElementById('saveText');
+  if(!pill || !textEl) return;
+  textEl.textContent = text;
+  pill.classList.toggle('saving', saving);
+  pill.style.background = error ? 'rgba(180,40,20,.35)' : '';
+}
+
+function currentPayload(){
+  return {
+    height: state.height,
+    weight: state.weight,
+    weightLogs: state.weightLogs,
+    checklist: state.checklist,
+    checklistDate: todayISO(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+// LOCALSTORAGE
+function saveLocalFallback(p){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); }catch(e){}
+}
+
+function loadLocalFallback(){
+  try{
+    const r = localStorage.getItem(STORAGE_KEY);
+    if(!r) return;
+    const s = JSON.parse(r);
+    state.height = s.height ?? state.height;
+    state.weight = s.weight ?? state.weight;
+    state.weightLogs = s.weightLogs ?? [];
+    if(s.checklist && s.checklistDate === todayISO()) state.checklist = s.checklist;
+  }catch(e){}
+}
+
+function applyPayload(s){
+  if(!s) return;
+  isApplyingRemote = true;
+  state.height = s.height ?? state.height;
+  state.weight = s.weight ?? state.weight;
+  state.weightLogs = s.weightLogs ?? [];
+  if(s.checklist && s.checklistDate === todayISO()) state.checklist = s.checklist;
+  
+  document.getElementById('hInput').value = state.height;
+  document.getElementById('wInput').value = state.weight;
+  
+  recalcBmi(false);
+  renderWeightLogs();
+  renderChecklist();
+  isApplyingRemote = false;
+}
+
+// GOOGLE AUTH & DRIVE API
+function initGoogleAuth(){
+  if(!window.google?.accounts?.oauth2){
+    setTimeout(initGoogleAuth, 300);
+    return;
+  }
+  googleTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: async (response) => {
+      if(response.error){
+        console.error('Google OAuth Error:', response);
+        setSaveStatus('Lỗi đăng nhập Google', false, true);
+        return;
       }
+      accessToken = response.access_token;
+      setSaveStatus('Đang đồng bộ...', true);
+      await loadGoogleProfile();
+      await initialDriveSync();
+      startDrivePolling();
     }
+  });
+}
 
-    // Cập nhật giao diện ứng dụng
-    function updateUI(isLoggedIn) {
-      const statusBox = document.getElementById('statusBox');
-      const statusText = document.getElementById('statusText');
-      const btnLogin = document.getElementById('btnLogin');
-      const btnLogout = document.getElementById('btnLogout');
+function signInWithGoogle(){
+  if(GOOGLE_CLIENT_ID.startsWith('YOUR_')){
+    alert('Vui lòng cấu hình GOOGLE_CLIENT_ID hợp lệ.');
+    return;
+  }
+  if(!googleTokenClient){
+    initGoogleAuth();
+    setTimeout(signInWithGoogle, 300);
+    return;
+  }
+  googleTokenClient.requestAccessToken({prompt:'select_account'});
+}
 
-      if (isLoggedIn) {
-        statusBox.className = 'status-bar logged-in';
-        statusText.innerText = 'Đã kết nối Google Drive';
-        btnLogin.style.display = 'none';
-        btnLogout.style.display = 'inline-block';
+function signOutGoogle(){
+  if(accessToken && window.google?.accounts?.oauth2){
+    google.accounts.oauth2.revoke(accessToken, () => {});
+  }
+  accessToken = null;
+  driveFileId = null;
+  clearInterval(drivePollTimer);
+  document.getElementById('googleUser').style.display = 'none';
+  document.getElementById('googleSignInBtn').style.display = '';
+  document.getElementById('googleSignOutBtn').style.display = 'none';
+  setSaveStatus('Chưa kết nối Drive');
+  showToast('Đã đăng xuất Google');
+}
+
+async function loadGoogleProfile(){
+  try{
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+    if(!res.ok) throw new Error();
+    const u = await res.json();
+    const el = document.getElementById('googleUser');
+    el.textContent = `Đang đồng bộ với Drive: ${u.name || u.email || 'Google User'}`;
+    el.style.display = 'block';
+    document.getElementById('googleSignInBtn').style.display = 'none';
+    document.getElementById('googleSignOutBtn').style.display = '';
+  }catch(e){
+    console.error(e);
+  }
+}
+
+async function driveFetch(url, opt={}){
+  const h = new Headers(opt.headers || {});
+  h.set('Authorization', 'Bearer ' + accessToken);
+  return fetch(url, { ...opt, headers: h });
+}
+
+async function findDriveFile(){
+  const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and 'appDataFolder' in parents and trashed=false`);
+  const r = await driveFetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name,modifiedTime)`);
+  if(!r.ok) throw Error('Drive search failed');
+  const d = await r.json();
+  return d.files?.[0] || null;
+}
+
+async function createDriveFile(p){
+  const meta = { name: DRIVE_FILE_NAME, parents: ['appDataFolder'], mimeType: 'application/json' };
+  const b = 'gankhoe_' + Date.now();
+  const body = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(p)}\r\n--${b}--`;
+  const r = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime', {
+    method: 'POST',
+    headers: { 'Content-Type': `multipart/related; boundary=${b}` },
+    body: body
+  });
+  if(!r.ok) throw Error('Drive create failed');
+  return r.json();
+}
+
+async function updateDriveFile(p){
+  const r = await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(p)
+  });
+  if(!r.ok) throw Error('Drive update failed');
+  return r.json();
+}
+
+async function readDriveFile(){
+  const r = await driveFetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`);
+  if(!r.ok) throw Error('Drive read failed');
+  return r.json();
+}
+
+async function initialDriveSync(){
+  try{
+    const f = await findDriveFile();
+    if(!f){
+      const p = currentPayload();
+      const c = await createDriveFile(p);
+      driveFileId = c.id;
+      lastRemoteModifiedTime = c.modifiedTime || null;
+      saveLocalFallback(p);
+    } else {
+      driveFileId = f.id;
+      const remote = await readDriveFile();
+      const lr = localStorage.getItem(STORAGE_KEY);
+      const local = lr ? JSON.parse(lr) : null;
+      const rt = Date.parse(remote.updatedAt || 0);
+      const lt = Date.parse(local?.updatedAt || 0);
+
+      if(lt > rt){
+        await updateDriveFile(currentPayload());
       } else {
-        statusBox.className = 'status-bar logged-out';
-        statusText.innerText = 'Chưa kết nối Drive (Đã lưu local)';
-        btnLogin.style.display = 'inline-block';
-        btnLogout.style.display = 'none';
+        applyPayload(remote);
+        saveLocalFallback(remote);
       }
+      lastRemoteModifiedTime = f.modifiedTime || null;
     }
-  </script>
+    setSaveStatus('Đã kết nối Drive');
+    showToast('Đã đồng bộ Google Drive');
+  }catch(e){
+    console.error(e);
+    setSaveStatus('Lỗi đồng bộ Drive', false, true);
+  }
+}
+
+async function syncToDrive(){
+  if(isApplyingRemote || !accessToken || !driveFileId) return;
+  try{
+    setSaveStatus('Đang lưu Drive...', true);
+    const p = currentPayload();
+    saveLocalFallback(p);
+    const u = await updateDriveFile(p);
+    lastRemoteModifiedTime = u.modifiedTime || lastRemoteModifiedTime;
+    setSaveStatus('Đã kết nối Drive');
+    showToast('Đã đồng bộ Google Drive');
+  }catch(e){
+    console.error(e);
+    setSaveStatus('Lỗi lưu Drive', false, true);
+  }
+}
+
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  setSaveStatus('Đang lưu...', true);
+  saveTimer = setTimeout(() => {
+    const p = currentPayload();
+    saveLocalFallback(p);
+    setSaveStatus(accessToken ? 'Đã kết nối Drive' : 'Đã lưu local');
+    if(accessToken){
+      syncToDrive();
+    }
+  }, 500);
+}
+
+async function pollDrive(){
+  if(!accessToken || !driveFileId || document.hidden) return;
+  try{
+    const r = await driveFetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?fields=id,modifiedTime`);
+    if(!r.ok) return;
+    const m = await r.json();
+    if(m.modifiedTime !== lastRemoteModifiedTime){
+      const remote = await readDriveFile();
+      const lr = localStorage.getItem(STORAGE_KEY);
+      const local = lr ? JSON.parse(lr) : null;
+      if(Date.parse(remote.updatedAt || 0) > Date.parse(local?.updatedAt || 0)){
+        applyPayload(remote);
+        saveLocalFallback(remote);
+        showToast('Đã cập nhật từ thiết bị khác');
+      }
+      lastRemoteModifiedTime = m.modifiedTime;
+    }
+  }catch(e){
+    console.warn(e);
+  }
+}
+
+function startDrivePolling(){
+  clearInterval(drivePollTimer);
+  drivePollTimer = setInterval(pollDrive, 3000);
+}
+
+// MEAL PLANS
+const mealPlans = [
+  {
+    sang: 'Phở gà (ít bánh phở, nhiều thịt & rau thơm) + 1 quả chuối',
+    trua: 'Cơm gạo lứt (1 chén) + cá kho (ít đường) + canh rau ngót + dưa leo',
+    phu: 'Sữa chua không đường + vài hạt óc chó',
+    toi: 'Ức gà áp chảo ít dầu + rau củ luộc (bông cải, cà rốt) + 1/2 chén cơm',
+  },
+  {
+    sang: 'Bún gạo lứt trộn ức gà xé + rau sống',
+    trua: 'Cơm (3/4 chén) + đậu hũ sốt cà + canh bí đỏ + rau muống luộc',
+    phu: 'Trái cây ít ngọt (bưởi, táo) 1 phần',
+    toi: 'Cá hấp gừng + salad rau trộn dầu ô liu ít + 1/2 chén cơm',
+  },
+  {
+    sang: 'Yến mạch nấu sữa không đường + trứng luộc + trái cây',
+    trua: 'Cơm gạo lứt + thịt bò xào ít dầu với nhiều rau củ + canh chua cá',
+    phu: 'Sữa hạt không đường',
+    toi: 'Tôm hấp/luộc + rau lang luộc + 1/2 chén cơm',
+  },
+  {
+    sang: 'Bánh mì nguyên cám + trứng ốp la ít dầu + rau sống',
+    trua: 'Cơm (3/4 chén) + thịt heo nạc kho + canh mồng tơi + cà chua',
+    phu: 'Vài lát dưa hấu hoặc thanh long',
+    toi: 'Cá lóc kho tộ ít đường + rau muống xào tỏi ít dầu + 1/2 chén cơm',
+  },
+];
+
+function renderMeal(){
+  const p = mealPlans[mealIndex];
+  document.getElementById('mealDayNum').textContent = mealIndex + 1;
+  document.getElementById('mealPlanBody').innerHTML = `
+    <div class="meal-slot"><div class="meal-time">Sáng</div><div class="meal-desc">${p.sang}</div></div>
+    <div class="meal-slot"><div class="meal-time">Trưa</div><div class="meal-desc">${p.trua}</div></div>
+    <div class="meal-slot"><div class="meal-time">Xế</div><div class="meal-desc">${p.phu}</div></div>
+    <div class="meal-slot"><div class="meal-time">Tối</div><div class="meal-desc">${p.toi}</div></div>
+  `;
+}
+
+function shuffleMeal(){
+  let next;
+  do{ next = Math.floor(Math.random()*mealPlans.length); } while(next === mealIndex && mealPlans.length > 1);
+  mealIndex = next;
+  renderMeal();
+}
+
+// EXERCISE SCHEDULE
+const weekPlan = [
+  {day:'Thứ 2', type:'Đi bộ nhanh / chạy bộ nhẹ', detail:'30 phút, nhịp tim vừa phải'},
+  {day:'Thứ 3', type:'Tập kháng lực toàn thân', detail:'20–30 phút — squat, chống đẩy, plank'},
+  {day:'Thứ 4', type:'Đạp xe hoặc bơi', detail:'30–40 phút, cường độ vừa'},
+  {day:'Thứ 5', type:'Nghỉ ngơi / đi bộ nhẹ', detail:'15–20 phút thư giãn'},
+  {day:'Thứ 6', type:'Tập kháng lực toàn thân', detail:'20–30 phút — tăng dần mức tạ/độ khó'},
+  {day:'Thứ 7', type:'Vận động ngoài trời', detail:'45–60 phút — bóng đá, cầu lông, leo cầu thang...'},
+  {day:'CN', type:'Đi bộ nhẹ + giãn cơ', detail:'20 phút, phục hồi cơ thể'},
+];
+
+function renderWeekSchedule(){
+  document.getElementById('weekSchedule').innerHTML = weekPlan.map(d => `
+    <div class="week-row">
+      <div class="week-day">${d.day}</div>
+      <div class="week-body">
+        <div class="week-type">${d.type}</div>
+        <div class="week-detail">${d.detail}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// TAB MANAGEMENT
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-'+tab.dataset.tab).classList.add('active');
+    tab.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+  });
+});
+
+// BMI CALCULATOR
+function recalcBmi(save){
+  const h = parseFloat(document.getElementById('hInput').value) || 178;
+  const w = parseFloat(document.getElementById('wInput').value) || 79;
+  state.height = h; state.weight = w;
+  const bmi = w / Math.pow(h/100, 2);
+  document.getElementById('bmiNum').textContent = bmi.toFixed(1);
+  document.getElementById('heroWeight').textContent = w.toFixed(1);
+  document.getElementById('heroBmi').textContent = bmi.toFixed(1);
+
+  let tag, pct;
+  if(bmi < 18.5){ tag='Thiếu cân'; pct=15; }
+  else if(bmi < 23){ tag='Bình thường'; pct=40; }
+  else if(bmi < 25){ tag='Thừa cân nhẹ'; pct=62; }
+  else if(bmi < 30){ tag='Béo phì độ I (châu Á)'; pct=80; }
+  else { tag='Béo phì độ II+'; pct=95; }
+  document.getElementById('bmiTag').textContent = tag;
+  document.getElementById('bmiBar').style.width = pct + '%';
+  if(save) scheduleSave();
+}
+
+// WEIGHT LOGS
+function addWeightLog(){
+  const dateEl = document.getElementById('logDate');
+  const wEl = document.getElementById('logWeight');
+  const date = dateEl.value || todayISO();
+  const weight = parseFloat(wEl.value);
+  if(!weight){ wEl.focus(); return; }
+  state.weightLogs = state.weightLogs.filter(l=>l.date !== date);
+  state.weightLogs.push({date, weight});
+  state.weightLogs.sort((a,b)=> a.date.localeCompare(b.date));
+  wEl.value = '';
+  renderWeightLogs();
+  document.getElementById('wInput').value = weight;
+  recalcBmi(false);
+  scheduleSave();
+}
+
+function deleteWeightLog(date){
+  state.weightLogs = state.weightLogs.filter(l=>l.date !== date);
+  renderWeightLogs();
+  scheduleSave();
+}
+
+function renderWeightLogs(){
+  const list = document.getElementById('weightList');
+  const chartWrap = document.getElementById('chartWrap');
+  if(state.weightLogs.length === 0){
+    list.innerHTML = '<div class="empty">Chưa có dữ liệu. Ghi nhận cân nặng đầu tiên ở trên.</div>';
+    chartWrap.innerHTML = '';
+    return;
+  }
+  let html = '';
+  for(let i = state.weightLogs.length - 1; i >= 0; i--){
+    const cur = state.weightLogs[i];
+    const prev = state.weightLogs[i-1];
+    let deltaHtml = '';
+    if(prev){
+      const d = cur.weight - prev.weight;
+      const cls = d < -0.05 ? 'delta-down' : d > 0.05 ? 'delta-up' : 'delta-flat';
+      const sign = d > 0 ? '+' : '';
+      deltaHtml = `<span class="log-delta ${cls}">${sign}${d.toFixed(1)}kg</span>`;
+    }
+    html += `<div class="log-item"><span>${cur.date}</span><span style="display:flex;align-items:center;gap:8px;">${cur.weight.toFixed(1)}kg ${deltaHtml}<button class="del-btn" onclick="deleteWeightLog('${cur.date}')">✕</button></span></div>`;
+  }
+  list.innerHTML = html;
+
+  const W = 460, H = 130, pad = 24;
+  const weights = state.weightLogs.map(l=>l.weight);
+  const min = Math.min(...weights) - 1;
+  const max = Math.max(...weights) + 1;
+  const n = state.weightLogs.length;
+  const xStep = n > 1 ? (W - pad*2) / (n-1) : 0;
+  const points = state.weightLogs.map((l,i)=>{
+    const x = pad + i*xStep;
+    const y = H - pad - ((l.weight - min)/(max-min))*(H - pad*2);
+    return [x,y];
+  });
+  const path = points.map((p,i)=> (i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  const dots = points.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" fill="#c8842c"/>`).join('');
+  chartWrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" style="margin-top:6px;">
+    <line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#cfcbb8" stroke-width="1"/>
+    <path d="${path}" fill="none" stroke="#2f5d4f" stroke-width="2.5"/>
+    ${dots}
+    <text x="${pad}" y="14" font-family="monospace" font-weight="700" font-size="10" fill="#48564c">${max.toFixed(0)}kg</text>
+    <text x="${pad}" y="${H-pad-4}" font-family="monospace" font-weight="700" font-size="10" fill="#48564c">${min.toFixed(0)}kg</text>
+  </svg>`;
+}
+
+// CHECKLIST
+function renderChecklist(){
+  const grid = document.getElementById('checklist');
+  grid.innerHTML = state.checklist.map(item => `
+    <div class="check-item ${item.done?'done':''}" onclick="toggleCheck('${item.id}')">
+      <div class="check-box"></div><span>${item.label}</span>
+    </div>`).join('');
+  const doneCount = state.checklist.filter(c=>c.done).length;
+  document.getElementById('streakText').textContent = `${doneCount}/${state.checklist.length} hoàn thành hôm nay`;
+  document.getElementById('streakBar').style.width = (doneCount/state.checklist.length*100) + '%';
+}
+
+function toggleCheck(id){
+  const item = state.checklist.find(c=>c.id===id);
+  item.done = !item.done;
+  renderChecklist();
+  scheduleSave();
+}
+
+// INIT
+function init(){
+  document.getElementById('app').classList.add('skel');
+  loadLocalFallback();
+  document.getElementById('app').classList.remove('skel');
+
+  document.getElementById('hInput').value = state.height;
+  document.getElementById('wInput').value = state.weight;
+  document.getElementById('logDate').value = todayISO();
+
+  recalcBmi(false);
+  renderWeightLogs();
+  renderChecklist();
+  renderMeal();
+  renderWeekSchedule();
+  
+  initGoogleAuth();
+}
+
+window.addEventListener('load', init);
+</script>
 </body>
 </html>
