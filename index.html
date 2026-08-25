@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="light dark">
 <title>GAN KHỎE</title>
 
-<!-- ĐÃ THÊM: Liên kết file manifest.json và các Icon hiển thị màn hình chính -->
+<!-- Liên kết file manifest.json và các Icon hiển thị màn hình chính -->
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icon.png">
@@ -290,11 +290,12 @@
 <div class="toast" id="toast">Đã lưu</div>
 
 <script>
-// CONFIG - GOOGLE CLIENT ID CỦA BẠN ĐÃ ĐƯỢC ĐIỀN
+// CONFIG - GOOGLE CLIENT ID
 const GOOGLE_CLIENT_ID = '365249760461-ok13ql9ae57rttl0dkgn8b1ta653fgl7.apps.googleusercontent.com';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const DRIVE_FILE_NAME = 'gankhoe-data-v1.json';
 const STORAGE_KEY = 'gankhoe-data-v1';
+const AUTH_STORAGE_KEY = 'gankhoe-auth-v1';
 
 // STATE MANAGEMENT
 let state = {
@@ -385,6 +386,31 @@ function applyPayload(s){
   isApplyingRemote = false;
 }
 
+// PERSISTENT AUTH HELPERS
+function saveAuthLocal(token, expiresInSeconds){
+  const expTime = Date.now() + (expiresInSeconds * 1000);
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token, expTime }));
+}
+
+function getAuthLocal(){
+  try {
+    const data = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY));
+    if(!data) return null;
+    // Trừ hao 300 giây (5 phút) để đảm bảo token không hết hạn giữa chừng
+    if(Date.now() > data.expTime - 300000){
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
+    return data.token;
+  } catch(e) {
+    return null;
+  }
+}
+
+function clearAuthLocal(){
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
 // GOOGLE AUTH & DRIVE API
 function initGoogleAuth(){
   if(!window.google?.accounts?.oauth2){
@@ -398,15 +424,36 @@ function initGoogleAuth(){
       if(response.error){
         console.error('Google OAuth Error:', response);
         setSaveStatus('Lỗi đăng nhập Google', false, true);
+        clearAuthLocal();
         return;
       }
       accessToken = response.access_token;
+      saveAuthLocal(accessToken, response.expires_in || 3600);
       setSaveStatus('Đang đồng bộ...', true);
       await loadGoogleProfile();
       await initialDriveSync();
       startDrivePolling();
     }
   });
+
+  // TỰ ĐỘNG KHÔI PHỤC PHIÊN ĐĂNG NHẬP
+  const savedToken = getAuthLocal();
+  if(savedToken){
+    accessToken = savedToken;
+    setSaveStatus('Đang kết nối lại...', true);
+    (async () => {
+      try {
+        await loadGoogleProfile();
+        await initialDriveSync();
+        startDrivePolling();
+      } catch(e) {
+        console.warn('Lỗi khôi phục phiên cũ, yêu cầu đăng nhập lại');
+        clearAuthLocal();
+        accessToken = null;
+        setSaveStatus('Chưa kết nối Drive');
+      }
+    })();
+  }
 }
 
 function signInWithGoogle(){
@@ -419,7 +466,8 @@ function signInWithGoogle(){
     setTimeout(signInWithGoogle, 300);
     return;
   }
-  googleTokenClient.requestAccessToken({prompt:'select_account'});
+  // Cho phép đăng nhập im lặng nếu đã có tài khoản trước đó
+  googleTokenClient.requestAccessToken({prompt: accessToken ? '' : 'select_account'});
 }
 
 function signOutGoogle(){
@@ -428,6 +476,7 @@ function signOutGoogle(){
   }
   accessToken = null;
   driveFileId = null;
+  clearAuthLocal();
   clearInterval(drivePollTimer);
   document.getElementById('googleUser').style.display = 'none';
   document.getElementById('googleSignInBtn').style.display = '';
@@ -441,7 +490,7 @@ async function loadGoogleProfile(){
     const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { Authorization: 'Bearer ' + accessToken }
     });
-    if(!res.ok) throw new Error();
+    if(!res.ok) throw new Error('Token không hợp lệ');
     const u = await res.json();
     const el = document.getElementById('googleUser');
     el.textContent = `Đang đồng bộ với Drive: ${u.name || u.email || 'Google User'}`;
@@ -450,13 +499,24 @@ async function loadGoogleProfile(){
     document.getElementById('googleSignOutBtn').style.display = '';
   }catch(e){
     console.error(e);
+    throw e;
   }
 }
 
 async function driveFetch(url, opt={}){
   const h = new Headers(opt.headers || {});
   h.set('Authorization', 'Bearer ' + accessToken);
-  return fetch(url, { ...opt, headers: h });
+  const res = await fetch(url, { ...opt, headers: h });
+  if (res.status === 401) {
+    // Nếu bị lỗi 401 Unauthenticated -> Token hết hạn
+    clearAuthLocal();
+    accessToken = null;
+    setSaveStatus('Phiên hết hạn, hãy đăng nhập lại', false, true);
+    document.getElementById('googleSignInBtn').style.display = '';
+    document.getElementById('googleSignOutBtn').style.display = 'none';
+    throw Error('Unauthorized');
+  }
+  return res;
 }
 
 async function findDriveFile(){
@@ -525,7 +585,7 @@ async function initialDriveSync(){
     showToast('Đã đồng bộ Google Drive');
   }catch(e){
     console.error(e);
-    setSaveStatus('Lỗi đồng bộ Drive', false, true);
+    if(e.message !== 'Unauthorized') setSaveStatus('Lỗi đồng bộ Drive', false, true);
   }
 }
 
@@ -541,7 +601,7 @@ async function syncToDrive(){
     showToast('Đã đồng bộ Google Drive');
   }catch(e){
     console.error(e);
-    setSaveStatus('Lỗi lưu Drive', false, true);
+    if(e.message !== 'Unauthorized') setSaveStatus('Lỗi lưu Drive', false, true);
   }
 }
 
